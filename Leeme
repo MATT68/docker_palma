@@ -1,0 +1,13 @@
+
+En este primer ejercicio vamos a comenzar a crear imágenes usando un fichero, Dockerfile.
+
+Para crear la imagen lanzamos:
+
+ docker build -t=ElNombreQueQuierasParaLaImagen .
+
+Mejor pensado usa un nombre que haga referencia al ejercicio y a python: uno_python   por ejemplo.
+
+(Ojo, el punto final de la linea anterior indica que busque un fichero Dockerfile en el directorio desde el que lanzas el comando)
+
+NOTA: Tienes un par de errores que tendrás que subsanar para conseguir la imagen.
+
