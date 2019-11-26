@@ -3,3 +3,11 @@ Para levantar un container contra mysql80
 docker run -dP --network sparknet --name mysql80 -e MYSQL_ROOT_PASSWORD=forma2 \
              --mount source=data_mysql80,destination=/usr/local/hadoop_data      \
              -h mysqlserver -p 3306:3306 -it matt68/mysql80 
+             
+docker exec ...
+
+create database test;
+use test;
+create table t1(c1 char(10), c2 int);
+insert into t1 values("Palma",4),("Inca",6);
+select * from t1;
