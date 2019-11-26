@@ -1,0 +1,288 @@
+FROM matt68/scalabase:latest
+
+EXPOSE 4040
+EXPOSE 7077
+EXPOSE 8080
+EXPOSE 8081
+EXPOSE 8088
+EXPOSE 9083
+EXPOSE 9870
+# EXPOSE 2181 2888 3888
+# EXPOSE 8649
+ 
+
+ARG HADOOP_VERSION=3.2.0
+ARG SPARK_VERSION=2.4.0
+ARG HIVE_VERSION=3.1.1
+ARG FLUME_VERSION=1.9.0
+ARG SQOOP_VERSION=1.4.7
+ARG PIG_VERSION=0.17.0
+ARG MAVEN_VERSION=3.6.1
+# ARG ZK_VERSION=3.5.5
+
+RUN useradd -m -s /bin/bash hadoop
+RUN usermod -aG sudo hadoop
+
+WORKDIR /home/hadoop
+
+USER hadoop
+# Descargamos hadoop, spark y hive
+RUN  wget https://archive.apache.org/dist/hadoop/core/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz
+RUN  wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-without-hadoop.tgz
+RUN  wget http://apache.uvigo.es/hive/hive-${HIVE_VERSION}/apache-hive-${HIVE_VERSION}-bin.tar.gz
+
+# RUN chown hadoop /home/hadoop
+# Descomprimimos hadoop 
+RUN tar -zxf hadoop-${HADOOP_VERSION}.tar.gz
+RUN rm hadoop-${HADOOP_VERSION}.tar.gz
+RUN mv hadoop-${HADOOP_VERSION} hadoop
+
+# Descomprimimos spark 
+RUN tar -zxf spark-${SPARK_VERSION}-*.tgz
+RUN rm *.tgz
+RUN mv spark-${SPARK_VERSION}-* spark
+#RUN chown hadoop spark -R
+
+# Descomprimimos hive
+RUN tar -zxf apache-hive-${HIVE_VERSION}-bin.tar.gz
+RUN mv apache-hive-${HIVE_VERSION}-bin /home/hadoop/hive
+RUN rm apache-hive-${HIVE_VERSION}-bin.tar.gz
+
+RUN mkdir /home/hadoop/.ssh
+RUN mkdir /home/hadoop/hadoop/logs
+RUN touch /home/hadoop/hadoop/logs/fairscheduler-statedump.log
+RUN echo PubkeyAcceptedKeyTypes +ssh-dss >> /home/hadoop/.ssh/config
+RUN echo PasswordAuthentication no >> /home/hadoop/.ssh/config
+
+COPY --chown=hadoop config/id_rsa.pub /home/hadoop/.ssh/id_rsa.pub
+COPY --chown=hadoop config/id_rsa /home/hadoop/.ssh/id_rsa
+RUN cat /home/hadoop/.ssh/id_rsa.pub >> /home/hadoop/.ssh/authorized_keys
+#RUN chown hadoop .ssh -R
+
+#Variables de entorno generales
+ENV JAVA_HOME=/usr/local/openjdk-8
+ENV HADOOP_HOME=/home/hadoop/hadoop
+ENV PATH=${HADOOP_HOME}/bin:${HADOOP_HOME}/sbin:$PATH
+
+# Hadoop
+###########################   H A D O O P  #################################################
+
+RUN mkdir -p /home/hadoop/data/nameNode /home/hadoop/data/dataNode /home/hadoop/data/namesecondary /home/hadoop/data/tmp
+#RUN chown hadoop /home/hadoop/data/nameNode /home/hadoop/data/dataNode /home/hadoop/data/namesecondary /home/hadoop/data/tmp /home/hadoop/spark
+RUN echo "export HADOOP_HOME=/home/hadoop/hadoop"    >> /home/hadoop/.bashrc
+#RUN chown hadoop /home/hadoop/.profile /home/hadoop/.bashrc
+# MAP coloco el JAVA_HOME en el .bashrc porque los nodos, al conectar con ssh no ven el JAVA_HOME
+RUN echo "export JAVA_HOME=${JAVA_HOME}"     >> /home/hadoop/.bashrc
+
+RUN echo "export JAVA_HOME=${JAVA_HOME}"             >> /home/hadoop/hadoop/etc/hadoop/hadoop-env.sh
+RUN echo "export HDFS_NAMENODE_USER=hadoop"          >> /home/hadoop/hadoop/etc/hadoop/hadoop-env.sh
+RUN echo "export HDFS_DATANODE_USER=hadoop"          >> /home/hadoop/hadoop/etc/hadoop/hadoop-env.sh
+RUN echo "export HDFS_SECONDARYNAMENODE_USER=hadoop" >> /home/hadoop/hadoop/etc/hadoop/hadoop-env.sh
+RUN echo "export HADOOP_CONF_DIR=${HADOOP_HOME}/etc/hadoop" >> /home/hadoop/.bashrc
+RUN echo "export HADOOP_CONF_DIR=${HADOOP_HOME}/etc/hadoop" >> /home/hadoop/.profile
+
+# Define HADOOP_CLASSPATH 
+ENV HADOOP_CLASSPATH=${JAVA_HOME}/lib/tools.jar
+
+###########################   S P A R K   #################################################
+ENV SPARK_HOME=/home/hadoop/spark
+
+#  PATH aggregate SPARK :
+ENV PATH=${SPARK_HOME}/bin:$PATH
+
+RUN echo "export LD_LIBRARY_PATH=${HADOOP_HOME}/lib/native:$LD_LIBRARY_PATH" >> /home/hadoop/.bashrc
+RUN echo "export LD_LIBRARY_PATH=${HADOOP_HOME}/lib/native:$LD_LIBRARY_PATH" >> /home/hadoop/.profile
+RUN echo "export SPARK_DIST_CLASSPATH=\$(hadoop classpath)" >> /home/hadoop/.bashrc
+RUN echo "export SPARK_DIST_CLASSPATH=\$(hadoop classpath)" >> /home/hadoop/.profile
+RUN echo "export SPARK_HOME=${SPARK_HOME}"                  >> /home/hadoop/.profile
+RUN echo "export SPARK_HOME=${SPARK_HOME}"                  >> /home/hadoop/.bashrc
+
+######################    H  I  V  E     ( &HCatalog ) #####################################
+ENV HIVE_HOME=/home/hadoop/hive
+
+RUN echo "export HIVE_HOME=$HIVE_HOME"                                       >> /home/hadoop/.bashrc
+RUN echo "export HIVE_CONF_DIR=$HIVE_HOME/conf"                              >> /home/hadoop/.bashrc
+
+#  PATH and  HADOOP_CLASSPATH aggregate HIVE :
+ENV PATH=${HIVE_HOME}/bin:${PATH}
+ENV HADOOP_CLASSPATH=${HIVE_HOME}/conf/:${HIVE_HOME}/lib/*:${HADOOP_CLASSPATH}
+
+RUN echo "export CLASSPATH=$(hadoop classpath):$HIVE_HOME/lib/*.jar"         >> /home/hadoop/.bashrc
+
+# Subimos los ficheros de configuracion del cluster para spark: 
+COPY --chown=hadoop config/workers      ${SPARK_HOME}/conf/slaves
+COPY --chown=hadoop config/sparkcmd.sh  /home/hadoop/
+
+# Subimos los ficheros de configuracion del cluster para hive: 
+COPY --chown=hadoop config/hive-site.xml ${HIVE_HOME}/conf/hive-site.xml
+COPY --chown=hadoop config/hive-env.sh   ${HIVE_HOME}/conf/hive-env.sh
+COPY --chown=hadoop config/hivecmd.sh    /home/hadoop/
+#RUN chown hadoop /home/hadoop/*
+
+COPY --chown=hadoop config/core-site.xml config/hdfs-site.xml config/mapred-site.xml config/yarn-site.xml config/workers ${HADOOP_HOME}/etc/hadoop/
+#RUN chown hadoop /home/hadoop/hadoop/etc/hadoop/*
+
+# MySQL connector : hive needs a mysql connector to use by the metastore. It will be installed later. 
+
+###########################   F  L  U  M  E    #################################################
+ENV FLUME_HOME=/home/hadoop/flume
+
+RUN wget http://apache.uvigo.es/flume/${FLUME_VERSION}/apache-flume-${FLUME_VERSION}-bin.tar.gz
+RUN tar -zxf apache-flume-${FLUME_VERSION}-bin.tar.gz
+RUN mv  apache-flume-${FLUME_VERSION}-bin       $FLUME_HOME
+RUN rm  apache-flume-${FLUME_VERSION}-bin.tar.gz -f
+
+RUN echo "export FLUME_HOME=$FLUME_HOME"                                              >> /home/hadoop/.bashrc
+RUN echo "export FLUME_HOME=$FLUME_HOME"                                              >> /home/hadoop/.profile
+RUN echo "export FLUME_CLASSPATH=$FLUME_HOME/lib/*.jar"                               >> /home/hadoop/.bashrc
+RUN echo "export FLUME_CLASSPATH=$FLUME_HOME/lib/*.jar"                               >> /home/hadoop/.profile
+
+#  PATH aggregating FLUME
+ENV PATH=$FLUME_HOME/bin:${PATH}
+# ENV HADOOP_CLASSPATH=${FLUME_HOME}/lib/*.jar:${HADOOP_CLASSPATH}
+
+###########################   S Q O O P  #################################################
+ENV SQOOP_HOME=/home/hadoop/sqoop
+
+#  VERSION 1.4.7 CON BUGS. 
+#  CUANDO ESTE DISPONIBLE LA VERSION 1.5.0 INSTALARLA SI SE HA SUBSANADO EL BUG : SQOOP-3435
+# RUN wget http://apache.uvigo.es/sqoop/${SQOOP_VERSION}/sqoop-${SQOOP_VERSION}.bin__hadoop-2.6.0.tar.gz
+# RUN tar -zxf sqoop-${SQOOP_VERSION}.bin__hadoop-2.6.0.tar.gz
+# RUN mv sqoop-${SQOOP_VERSION}.bin__hadoop-2.6.0 $SQOOP_HOME
+# RUN rm sqoop-${SQOOP_VERSION}.bin__hadoop-2.6.0.tar.gz -f
+
+RUN wget http://archive.apache.org/dist/sqoop/1.4.6/sqoop-1.4.6.bin__hadoop-2.0.4-alpha.tar.gz
+RUN tar -xzf sqoop-1.4.6.bin__hadoop-2.0.4-alpha.tar.gz
+RUN mv sqoop-1.4.6.bin__hadoop-2.0.4-alpha $SQOOP_HOME
+RUN rm sqoop-1.4.6.bin__hadoop-2.0.4-alpha.tar.gz -f         
+
+# MySQL connector : sqoop needs a mysql connector. It will be instaled later.
+
+RUN echo "export SQOOP_HOME=$SQOOP_HOME"           >> /home/hadoop/.bashrc
+RUN echo "export SQOOP_HOME=$SQOOP_HOME"           >> /home/hadoop/.profile
+RUN echo "export HCAT_HOME=${HIVE_HOME}/hcatalog"  >> /home/hadoop/.bashrc
+RUN echo "export HCAT_HOME=${HIVE_HOME}/hcatalog"  >> /home/hadoop/.profile
+
+#  PATH aggregating SQOOP
+ENV PATH=$SQOOP_HOME/bin:${PATH}
+# ENV HADOOP_CLASSPATH=${SQOOP_HOME}/conf:${SQOOP_HOME}/lib/*.jar:${HADOOP_CLASSPATH}
+
+###########################        P I G       #################################################
+ENV PIG_HOME=/home/hadoop/pig
+
+RUN wget http://apache.uvigo.es/pig/pig-${PIG_VERSION}/pig-${PIG_VERSION}.tar.gz
+RUN tar -zxf pig-${PIG_VERSION}.tar.gz
+RUN mv pig-${PIG_VERSION} $PIG_HOME
+RUN rm pig-${PIG_VERSION}.tar.gz -f
+
+RUN echo "export PIG_CLASSPATH=${HADOOP_HOME}/etc/hadoop"        >> /home/hadoop/.bashrc
+RUN echo "export PIG_CLASSPATH=${HADOOP_HOME}/etc/hadoop"        >> /home/hadoop/.profile
+# Para que PIG funcione sobre Spark es necesario SPARK_JAR
+RUN echo "export SPARK_JAR=$SPARK_HOME/jars"                     >> /home/hadoop/.bashrc
+
+#  PATH aggregating PIG
+ENV PATH=$PIG_HOME/bin:${PATH}
+
+###########################    M A V E N   #################################################
+# Descargamos y desplegamos maven, lo ejecutaremos invocando los comandos en maven/bin     
+
+RUN wget http://apache.uvigo.es/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
+RUN tar -xzf apache-maven-${MAVEN_VERSION}-bin.tar.gz
+RUN mv apache-maven-${MAVEN_VERSION} /home/hadoop/maven
+RUN rm apache-maven-${MAVEN_VERSION}-bin.tar.gz -f
+
+#################################    Z O O K E E P E R        #################################################
+#
+# ENV ZOOKEEPER_HOME=/home/hadoop/zookeeper        
+# ENV ZOO_DATA_LOG_DIR=${ZOOKEEPER_HOME}/log_app   
+# ENV ZOO_DATA_DIR=${ZOOKEEPER_HOME}/data_app      
+# ENV ZOO_CONF_DIR=${ZOOKEEPER_HOME}/conf          
+# ENV ZOO_LOG_DIR=${ZOOKEEPER_HOME}/logs 
+#
+# RUN wget http://apache.uvigo.es/zookeeper/zookeeper-${ZK_VERSION}/apache-zookeeper-${ZK_VERSION}.tar.gz 
+# RUN tar -zxf apache-zookeeper-${ZK_VERSION}.tar.gz                          
+# RUN mv apache-zookeeper-${ZK_VERSION} /home/hadoop/zookeeper                
+# RUN rm apache-zookeeper-${ZK_VERSION}.tar.gz                                 
+#
+# RUN mkdir -p "$ZOO_DATA_LOG_DIR" "$ZOO_DATA_DIR" "$ZOO_LOG_DIR"; 
+#
+#   Subimos los ficheros de configuracion del cluster para Zookeeper: 
+# COPY --chown=hadoop config/zoo.cfg      ${ZOOKEEPER_HOME}/conf/   
+# COPY --chown=hadoop config/zoo_init.sh  ${ZOOKEEPER_HOME}/
+#
+# RUN echo "export ZOOKEEPER_HOME=${ZOOKEEPER_HOME}"     >> ~/.bashrc
+# RUN echo "export ZOOKEEPER_HOME=${ZOOKEEPER_HOME}"     >> ~/.profile
+# RUN echo "export ZOO_DATA_DIR=${ZOO_DATA_DIR}" >> ~/.bashrc
+# RUN echo "export ZOO_DATA_DIR=${ZOO_DATA_DIR}" >> ~/.profile
+# RUN echo "export ZOO_DATA_LOG_DIR=${ZOO_DATA_LOG_DIR}"           >> ~/.bashrc
+# RUN echo "export ZOO_DATA_LOG_DIR=${ZOO_DATA_LOG_DIR}"           >> ~/.profile
+#
+#   Modificamos el fichero log4j.properties:
+#   En la segunda línea deberíamos poner ${ZOO_DATA_LOG_DIR}, pero no lo ha cogido bien...
+# RUN sed -i 's/zookeeper.root.logger=INFO, CONSOLE/zookeeper.root.logger=INFO, CONSOLE, ROLLINGFILE/g' \ 
+#                                                          "${ZOOKEEPER_HOME}/conf/log4j.properties"
+# RUN sed -i 's@zookeeper.log.dir=.@zookeeper.log.dir=/home/hadoop/zookeeper/log_app@g'                 \
+#                                                          "${ZOOKEEPER_HOME}/conf/log4j.properties"
+#
+#
+
+##########  AFTER INSTALLING ALL THE APACHE FRAMEWORKS #################################################
+
+#  Put PATH and HADOOP_CLASSPATH  in the .bashrc:
+RUN echo PATH="${PATH}"  >> /home/hadoop/.profile
+RUN echo PATH="${PATH}"  >> /home/hadoop/.bashrc
+RUN echo "export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}" >> /home/hadoop/.bashrc
+RUN echo "export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}" >> /home/hadoop/.profile
+# Definimos alias ll
+RUN echo "alias ll='ls -l'"  >> /home/hadoop/.bashrc
+
+# Prueba para zookeeper, si funciona agregarlo en su sitio
+# RUN echo "export CLASSPATH=$(hadoop classpath):$HIVE_HOME/lib/*.jar"         >> /home/hadoop/.profile
+
+
+USER root
+# MySQL connector for hive and sqoop
+# Para que hive conecte a mysql como metastore debemos instalar el mysql-connector-java.jar
+RUN wget https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java_8.0.16-1ubuntu19.04_all.deb
+RUN dpkg -i mysql-connector-java_8.0.16-1ubuntu19.04_all.deb
+# For hive :
+RUN ln -s /usr/share/java/mysql-connector-java-8.0.16.jar  $HIVE_HOME/lib/mysql-connector-java.jar
+# For sqoop : 
+RUN ln -s /usr/share/java/mysql-connector-java-8.0.16.jar  $SQOOP_HOME/lib/mysql-connector-java.jar
+RUN rm mysql-connector-java_8.0.16-1ubuntu19.04_all.deb -f
+RUN echo "hadoop:forma2" | chpasswd
+
+#################################    G A N G L I A      #################################################
+#  Instalamos el demonio Ganglia -Ganglia MONitoring Daemon-
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ganglia-monitor
+
+# En los nodos clientes basta con copiar el gmond.con
+COPY config/gmond.conf /etc/ganglia/gmond.conf
+
+EXPOSE 8649  
+
+##########################     F  I  N     G A N G L I A      ############################################
+
+# ERROR MENSAJES DE LOGS DUPLICADOS
+# Hive : borramos el jar que contiene la clase log4j-slf4 ya que está duplicada con HADOOP y provoca WARNINGS:
+# Flume: borramos el jar que contiene la clase log4j-slf4 ya que está duplicada con HADOOP y provoca WARNINGS:
+RUN /bin/rm $HIVE_HOME/lib/log4j-slf4j-impl-2.10.0.jar
+RUN /bin/rm $FLUME_HOME/lib/slf4j-log4j12-1.7.25.jar
+
+RUN echo ": : : : : : : : : : :  : : : : : : : : : : : : : :  : : : : : : : : : : : : : :  : : : "
+RUN echo ": : : INICIO ==> C O M P R O B A C I O N       D E       V A R I A B L E S : : : "
+RUN echo "PATH CON HADOOP, HIVE, FLUME Y SQOOP = $PATH"
+RUN echo "HADOOP_CLASSPATH CON HADOOP y HIVE = $HADOOP_CLASSPATH"
+RUN echo "       ====>>  COMPROBAR EL CONTENIDO DEL .bashrc y $HADOOP_CONF_DIR  <<======  "
+RUN echo ": : : FIN ==> C O M P R O B A C I O N       D E       V A R I A B L E S : : : "
+RUN echo ": : : : : : : : : : :  : : : : : : : : : : : : : :  : : : : : : : : : : : : : :  : : : "
+
+# Levantamos el ganglia-monitor service: 
+COPY config/InitServices.sh /etc/ganglia/InitServices.sh
+RUN  chmod 775 /etc/ganglia/InitServices.sh 
+
+#ENTRYPOINT ["/home/hadoop/sparkcmd.sh","start"]
+#CMD service ssh start && sleep infinity
+CMD     /etc/init.d/ssh start  \
+&& sleep infinity 
