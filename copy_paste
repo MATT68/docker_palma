@@ -59,8 +59,17 @@ mysql> GRANT ALL PRIVILEGES ON *.* TO 'root'@'%';
 -- Si da problemas con ssha caching:
 CREATE USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'forma2';
 
+PROBAMOS A CONECTAR DESDE EL HOST... OK
+Y Para conectar desde otro container con un cliente de mysql creamos un container_cliente usando 
+la misma imagen de mysql:
 
-  
+docker run -dP --network palmanet --name mysql80_client -e MYSQL_ROOT_PASSWORD=forma2 \
+           -h mysqlclient -p 3333:3306 -it matt68/mysql80
+
+Por último entramos al container y nos conectamos al mysql_server:
+map@MAPMNTLX:~$ docker exec -it mysql80_client bash
+bash-4.2# mysql -u root -p -h 172.18.0.2
+
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 Para descarga una imagen con mysql 8.0 y levantar un container:
 
