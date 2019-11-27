@@ -56,6 +56,8 @@ mysql> quit
  mysql -u root -p
  
 mysql> GRANT ALL PRIVILEGES ON *.* TO 'root'@'%';
+-- Si da problemas con ssha caching:
+CREATE USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'forma2';
 
 
   
