@@ -1,0 +1,5 @@
+
+En este ejercicio vamos a crear con tres containers corriendo un servicio web y un servicio que contabilice
+ las visitas ejecutando sobre redis.
+
+Para ello vamos a ir agregando al docker-compose.yml varios parámetros necesarios ...
