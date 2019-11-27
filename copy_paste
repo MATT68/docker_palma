@@ -1,3 +1,16 @@
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+Ya hemos creado varios containers a partir de un Dockerfile.
+
+ Y hemos tenido que instalar en varios casos algunos paquetes....
+
+  apt-get  install iproute2
+  apt-get  install iputils-ping
+
+ Haz que formen parte del Dockerfile y vuelve a recrear la imagen del Ejercicio 1.
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
 Para levantar un container contra mysql80
 
 docker run -dP --network sparknet --name mysql80 -e MYSQL_ROOT_PASSWORD=forma2 \
