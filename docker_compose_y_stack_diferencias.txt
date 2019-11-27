@@ -1,0 +1,33 @@
+
+The Difference Between Docker Compose And Docker Stack
+
+In recent releases, a few things have happened in the Docker world. Swarm mode got integrated into the Docker Engine in 1.12, and has brought with it several new tools. Among others, it’s possible to make use of docker-compose.yml files to bring up stacks of Docker containers, without having to install Docker Compose.
+
+The command is called docker stack, and it looks exactly the same to docker-compose. Here’s a comparison:
+
+$ docker-compose -f docker-compose up
+
+$ docker stack deploy -c docker-compose.yml somestackname
+
+Pretty similar indeed. Both of those will bring up all the services, volumes, networks and everything else, just as specified in docker-compose.yml files. But why has this happened, and is docker stack different from Docker Compose somehow? Why was it introduced? What to mind, apart from the syntax?
+The Difference
+
+Docker stack is ignoring “build” instructions. You can’t build new images using the stack commands. It need pre-built images to exist. So docker-compose is better suited for development scenarios.
+
+There are also parts of the compose-file specification which are ignored by docker-compose or the stack commands. (Search for “ignore” on that page to look through more details).
+
+Docker Compose is a Python project. Originally, there was a Python project known as fig which was used to parse fig.yml files to bring up - you guessed it - stacks of Docker containers. Everybody loved it, especially the Docker folks, so it got reincarnated as docker compose to be closer to the product. But it was still in Python, operating on top of the Docker Engine.
+
+Internally, it uses the Docker API to bring up containers according to a specification. You still have to install docker-compose separately to use it with Docker on your machine.
+
+The Docker Stack functionality, is included with the Docker engine. You don’t need to install additional packages to use it Deploying docker stacks is part of the swarm mode. It supports the same kinds of compose files, but the handling happens in Go code, inside of the Docker Engine. You also have to create a one-machine “swarm” before being able to use the stack command, but that’ not a big issue.
+
+Docker stack does not support docker-compose.yml files which are written according to the version 2 specification. It has to be the most recent one, which is 3 at the time of writing, while Docker Compose still can handle versions 2 and 3 without problems.
+Conclusion
+
+Both docker-compose and the new docker stack commands can be used with docker-compose.yml files which are written according to the specification of version 3. For your version 2 reliant projects, you’ll have to continue using docker-compose. If you want to upgrade, it’s not a lot of work though.
+
+As docker stack does almost everything docker compose does. If you want to use Docker Swarm for orchestrating your containers, give it a try and see if it works for you. You might have to upgrade your docker compose files from version 2 to 3 for this.
+
+If you just need a tool to make it easier to handle running multiple containers at once, you can safely go ahead and stick with docker compose. It does everything you need, and you can still switch to docker stack later on if you want.
+
