@@ -1,21 +1,40 @@
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ Ejercicio BBDD - Comunicacion de containers 
+ 
+ 1.- Preparamos un dockerfile para:
+ 
+  - Crear una imagen de nombre xxxxxxxx  a partir de matt68/mysql80
+  - Instalar paquetes: 
+     apt-get  install iproute2
+     apt-get  install iputils-ping
 
-Ya hemos creado varios containers a partir de un Dockerfile.
+ 2.- Levantamos la imagen / ejecutamos un container y nos conectamos con un bash en él.
 
- Y hemos tenido que instalar en varios casos algunos paquetes....
+docker create network palmanet
+docker create volume  data_mysql80
 
-  apt-get  install iproute2
-  apt-get  install iputils-ping
-
- Haz que formen parte del Dockerfile y vuelve a recrear la imagen del Ejercicio 1.
+docker run -dP --network palmanet --name mysql80 -e MYSQL_ROOT_PASSWORD=forma2 \
+             --mount source=data_mysql80,destination=/usr/local/hadoop_data      \
+             -h mysqlserver -p 3306:3306 -it xxxxxxxxx
+ 
+ 3.-  Abrimos sesión de mysql y lanzamos:
+ 
+ mysql -u root -p 
+ 
+ create database test;
+ use test;
+ create table t1(c1 char(10), c2 int);
+ insert into t1 values("Palma",4),("Inca",6);
+ select * from t1;
+   
+  
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 Para levantar un container contra mysql80
 
-docker run -dP --network sparknet --name mysql80 -e MYSQL_ROOT_PASSWORD=forma2 \
-             --mount source=data_mysql80,destination=/usr/local/hadoop_data      \
-             -h mysqlserver -p 3306:3306 -it matt68/mysql80 
+ 
              
 docker exec ...
 
