@@ -1,4 +1,25 @@
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  DOCKER SWARM y DOCKER STACK
+  
+  1.-
+  
+  docker swarm init
+  (levanta el swarm/enjambre y marca como master la maquina actual )
+  docker swarm join ....
+  
+  2.- docker-compose.yml
+  
+  3.- docker stack deploy ....
+  
+  4.- docker swarm ps ....
+  
+  .....
+  
+  
+  
+  
+  
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
  Ejercicio BBDD - Comunicacion de containers 
  
  1.- Preparamos un dockerfile para:
