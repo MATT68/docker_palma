@@ -5,8 +5,8 @@ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
  
   - Crear una imagen de nombre xxxxxxxx  a partir de matt68/mysql80
   - Instalar paquetes: 
-     yum  install iproute2
-     yum  install iputils-ping
+     yum  install iputils  \
+                  ping
 
  2.- Levantamos la imagen / ejecutamos un container y nos conectamos con un bash en él.
 
