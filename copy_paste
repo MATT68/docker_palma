@@ -10,8 +10,8 @@ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
  2.- Levantamos la imagen / ejecutamos un container y nos conectamos con un bash en él.
 
-docker create network palmanet
-docker create volume  data_mysql80
+docker network create  palmanet
+docker volume  create   data_mysql80
 
 docker run -dP --network palmanet --name mysql80 -e MYSQL_ROOT_PASSWORD=forma2 \
              --mount source=data_mysql80,destination=/usr/local/hadoop_data      \
