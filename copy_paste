@@ -26,7 +26,38 @@ docker run -dP --network palmanet --name mysql80 -e MYSQL_ROOT_PASSWORD=forma2 \
  create table t1(c1 char(10), c2 int);
  insert into t1 values("Palma",4),("Inca",6);
  select * from t1;
-   
+
+ 4.- Para que admita conexiones remotas:
+ 
+ mysql> select user, host from mysql.user;
++------------------+-----------+
+| user             | host      |
++------------------+-----------+
+| healthchecker    | localhost |
+| mysql.infoschema | localhost |
+| mysql.session    | localhost |
+| mysql.sys        | localhost |
+| root             | localhost |
++------------------+-----------+
+
+mysql> update mysql.user set host="%" where user="root";
+
+mysql> select user, host from mysql.user;
++------------------+-----------+
+| user             | host      |
++------------------+-----------+
+| root             | %         |
+| healthchecker    | localhost |
+| mysql.infoschema | localhost |
+| mysql.session    | localhost |
+| mysql.sys        | localhost |
++------------------+-----------+
+mysql> quit
+ mysql -u root -p
+ 
+mysql> GRANT ALL PRIVILEGES ON *.* TO 'root'@'%';
+
+
   
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 Para descarga una imagen con mysql 8.0 y levantar un container:
