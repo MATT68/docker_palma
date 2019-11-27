@@ -1,0 +1,45 @@
+# Partimos de una imagen oficial de python
+FROM python:slim
+
+LABEL DESCRIPCION="Esta imagen es para comenzar con comandos dockerfile" CREADOR="MAP"
+
+# Hostanme
+RUN  hostname=host_python
+
+
+# Subo los ficheros file*
+RUN mkdir /test
+
+ADD file1.txt /test
+ADD file2.txt /test
+ADD file3.txt /opt
+
+RUN useradd -m -s /bin/bash palma1
+
+USER palma1
+COPY file*.txt  /home/palma1/
+
+USER root
+
+# Fijamos el directorio de trabajo como  /app
+WORKDIR /app
+
+# Copiamos el contenido del directorio actual dentro de la imagen en el directorio  /app
+COPY . /app
+
+# Instalamos los paquetes python que especificamos en el fichero requisitos
+RUN pip install --trusted-host pypi.python.org -r requisitos.txt
+
+# Publicamos el puerto 80 para acceso a la imagen/container desde el exterior
+EXPOSE 80
+
+# Definimos una variable de entorno
+# ENV NAME ServidorAplicaciones
+
+ADD accion.sh ./
+RUN chmod 775 ./accion.sh 
+
+# Quitar el entrypoint
+ENTRYPOINT ["/bin/bash","/app/accion.sh"]
+# Cuando se lance el container se ejecuta app.py 
+CMD ["python", "app.py"]
