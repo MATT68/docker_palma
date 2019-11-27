@@ -1,0 +1,61 @@
+ Algunos comandos habituales:
+
+
+    docker network create net1
+    
+    docker network rm net1
+    
+    docker create --name mycontainer \
+       --network net1 \
+       --publish 8080:80 \
+          matt68/mysql80
+
+    docker network connect    net1 mycontainer
+    docker network disconnect net1 mycontainer
+
+
+  Para las redes de tipo overlay debemos tener además en cuenta:
+
+      docker network create -d overlay net1
+
+      docker network create -d overlay --attachable net1
+
+
+  
+ Directamente de los manuales:
+
+ https://docs.docker.com/network/
+
+ Las redes más habituales son las de tipo (driver) bridge, host, overlay, macvlan...
+ 
+ Pero unas son mejores que otras dependiendo de lo que queramos lograr comunicar -o aislar-.
+ 
+ bridge networks are best when you need multiple containers to communicate on the same Docker host.
+
+ Host networks are best when the network stack should not be isolated from the Docker host, but you want other aspects of the container to be isolated.
+
+ Overlay networks are best when you need containers running on different Docker hosts to communicate, or when multiple applications work together using swarm services.
+
+ Macvlan networks are best when you are migrating from a VM setup or need your containers to look like physical hosts on your network, each with a unique MAC address.
+
+ Third-party network plugins allow you to integrate Docker with specialized network stacks.
+
+
+ - Resumiendo: 
+   Bridge: para jugar a conectar containers en nuestro equipo, usaremos bridge.
+   Overlay: para crar un docker swarm y que varios demonios docker (varias docker-machine) se vean y se comuniquen correctamente
+
+
+ Curiosidades de bridge:
+
+  Todos los containers de la red exponen sus puertos entre sí  (Iñigo!...), y ninguno al exterior .
+   
+  
+ Curiosidades de overlay:
+
+   When you initialize a swarm or join a Docker host to an existing swarm, two new networks are created on that Docker host:
+
+   1.- an overlay network called ingress, which handles control and data traffic related to swarm services. When you create a swarm service and do not connect it to a user-defined overlay network, it connects to the ingress network by default.
+
+   2.- a bridge network called docker_gwbridge, which connects the individual Docker daemon to the other daemons participating in the swarm.
+

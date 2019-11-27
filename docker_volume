@@ -1,0 +1,12 @@
+
+ Los datos en los containers son volátiles, se borra el container, se pierden los datos.
+
+ Por eso para persistir los datos necesitamos los volumnes, que es la manera recomendada por docker para persistencia de datos.
+
+ Sin embargo, hay varios tipos de montaje según el uso:
+
+ Vamos a echarle un vistazo en los manuales a un esquema:
+
+ https://docs.docker.com/storage/
+
+ Y de estos tipos destacamos dos: volume y tmpfs mount.
