@@ -1,0 +1,43 @@
+version: "3"
+services:
+  web:
+    # Cargamos la imagen que hemos subido al repositorio
+    image: matt68/uno_python:latest
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 50M
+      restart_policy:
+        condition: on-failure
+    ports:
+      - "4000:80"
+    networks:
+      - webnet
+  visualizer:
+    # Cargamos la imagen del visualizer 
+    image: dockersamples/visualizer:stable
+    ports:
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+    networks:
+      - webnet    
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - "/home/map/docker/docker_palma/data:/data"
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+    command: redis-server --appendonly yes
+    networks:
+      - webnet  
+networks:
+  webnet:
