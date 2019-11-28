@@ -1,0 +1,270 @@
+
+ Comandos para instalar un cluster con Kubernetes usando minikube:
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# Instalamos minikube
+
+# Comprobamos que está bien instalado: 
+
+ minikube version
+
+# Levantamos minikube:
+
+ minikube start
+
+ # kubectl es el cliente para interactuar con kubernetes, que es el servidor:
+ # Comprobamos que está instalado:
+ 
+ kubectl version
+
+ # Vistazo al cluster
+
+ kubectl cluster-info
+
+ # Comprobamos cuántos nodos componen el cluster:
+
+ kubectl get-nodes
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ # Desplegamos una aplicación:
+   kubectl create deployment kubernetes-bootcamp --image=gcr.io/google-samples/kubernetes-bootcamp:v1
+
+# Para ver las aplicaciones desplegadas lanzamos:
+  kubectl get deployments
+
+# Abrimos un segundo terminal (dos) y levantamos un proxy en kubernetes con : 
+# 
+  kubectl proxy
+# se quedará abierto y   escuchando en el puerto 8001
+# El proxy proporciona acceso al cluster desde el exterior (p.ej. otros terminales )
+
+# Mientras tanto volvemos al terminal uno y comprobamos que llegamos desde el host al 
+# cluster de kubernetes, lanzamos el comando:
+
+  curl http://localhost:8001/version
+
+# Ya estamos comunicados con el cluster pero no es muy óptimo tener que abrir un proxy, así
+# que más adelante definiremos servicios que nos permitan acceder al cluster kubernetes 
+# desde el exterior.
+
+# Primero vamos a crear una variable de entorno con el nombre del pod en el que estamos:
+ 
+  kubectl get pods
+
+# Y de esta información queremos guardar sólo el nombre:
+  export POD_NAME=$(kubectl get pods -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}')
+
+  echo Name of the Pod: $POD_NAME  
+
+# Vamos a ver qué hay ahora mismo en los pods: 
+  kubectl get pods
+
+# ... bueno, pod, que sólo tenemos uno-:
+  kubectl describe pods
+
+# Podemos ver que la aplicación está activa, pero  no tenemos ningún
+# servicio  definido que permita el acceso al cluster desde el exterior, así que usaremos 
+# el proxy de antes, si lo cerraste, vuelve a abrirlo.
+# Para ver la salida de la aplicación hacemos un curl a la URL de la API del pod:
+
+curl http://localhost:8001/api/v1/namespaces/default/pods/$POD_NAME/proxy/
+
+# Para acceder a los logs del container usamos kubectl logs y el container, pero como sólo
+# tenemos un container en le pod, esta vez vale con poner:
+
+kubectl logs $POD_NAME
+
+# Ahora podemos lanzar comandos contra el container -como lo hacemos en docker-:
+
+kubectl exec $POD_NAME env
+
+# Abrir un bash:
+
+  kubectl exec -it $POD_NAME bash
+
+# Dentro, podemos observar el contenido de server.js que es el node.js que estamos ejecutando:
+cat server.js
+
+# Y como estamos dentro del container podemos la salida de la aplicación con localhost sin 
+# necesidad de la API:
+curl localhost:8080
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+     CREANDO SERVICIOS PARA EXPONER LA APLICACION
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# Podemos ver qué servicios tenemos:
+
+kubectl get services
+
+# Vemos que el único servico es kubernetes, el default. Creamos otro, el nuestro: 
+
+kubectl expose deployment/kubernetes-bootcamp --type="NodePort" --port 8080
+
+# Nos responde que ahora nuestro servicio está expuesto. Lo comprobamos: 
+kubectl get services
+
+# Vemos que aparece con la IP del Nodo (que es la IP externa) y un puerto interno (8080) 
+# y otro externo (32764).
+# Podemos ver qué puerto externo ha abierto (con la opcion NodePort) con describe service:
+
+kubectl describe services/kubernetes-bootcamp
+
+# Vamos a crear una variable de entorno llamada NODE_PORT con el puerto asignado:
+
+export NODE_PORT=$(kubectl get services/kubernetes-bootcamp -o go-template='{{(index .spec.ports 0).nodePort}}')
+
+echo NODE_PORT=$NODE_PORT
+
+# Y por último podemos comprobar que accedemos desde el host a la aplicación que está en k8s 
+# usando curl, la ip del nodo (minikube sólo tiene un nodo) y el puerto expuesto : 
+
+curl $(minikube ip):$NODE_PORT
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+         L A B E L S 
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+#  Podemos usar etiquetas para gestionar los objetos que tenemos en el cluster en grupo
+#  y de forma más cómoda.  Vemos cómo. 
+
+kubectl describe deployment
+
+# Vemos que la etiqueta se llama run=kubernetes-bootcamp, y podemos usarla para 
+# listar los pods que la tienen: 
+
+kubectl get pods -l run=kubernetes-bootcamp
+
+# Y también podemos pedir qué servicios llevan esa etiqueta:
+kubectl get services -l run=kubernetes-bootcamp
+
+# Ahora vamos a asignar labels nosotros. Queremos etiquetar el pod con otra etiqueta:
+# Así que primero tomamos el nombre del pod: 
+
+export POD_NAME=$(kubectl get pods -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}')
+
+echo Name of the Pod: $POD_NAME
+
+# Y lo usamos:
+kubectl label pod $POD_NAME app=v1
+
+# Comprobamos la nueva etiqueta asignada al pod:
+kubectl describe pod $POD_NAME
+
+# Y podemos pedir comandos contra los pods que tengan esta etiqueta:
+kubectl get pods -l app=v1
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+         S C A L I N G     A P P S         up and down...
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# Comprobamos cómo está ahora la única aplicación que tenemos:
+kubectl get deployments
+
+# La escalamos a 4 réplicas : 
+kubectl scale deployments/kubernetes-bootcamp --replicas=4
+
+# Comprobamos cómo queda y cuántos pods hay ahora:
+kubectl get deployments
+
+kubectl get pods -o wide
+
+# En el detalle del deployment también podemos ver cómo ha escalado:
+
+kubectl describe deployments/kubernetes-bootcamp
+
+# Vemos ahora si se está balanceando la carga, para ello vamos a lanzar
+# curl $(minikube ip):$NODE_PORT pero para ello necesitamos el NODE_PORT :
+
+export NODE_PORT=$(kubectl get services/kubernetes-bootcamp -o go-template='{{(index .spec.ports 0).nodePort}}')
+
+echo NODE_PORT=$NODE_PORT
+
+# Y ahora ejecutamos varias veces el curl para ver cómo va cambiando el pod que ejecuta
+# el container para dar respuesta al servicio:
+
+curl $(minikube ip):$NODE_PORT
+
+# Podemos bajar el número de replicas repitiendo los pasos anteriores.
+
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        R O L L I N G     U P D A T E      A P P S 
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# Primero comprobamos la situación del deployment, pods y detalle de los pods (que 
+# es donde tenemos los containers con la app)
+
+kubectl get deployments
+
+kubectl get pods
+
+kubectl describe pods
+
+# Podemos ver en el detalle de los pods la imagen que está ejecutando actualmente
+# Tenemos una nueva versión disponible, la actualizamos con set image : 
+
+kubectl set image deployments/kubernetes-bootcamp kubernetes-bootcamp=jocatalin/kubernetes-bootcamp:v2
+
+# Nos contesta que la imagen ha sido actualizada y si pedimos :
+
+kubectl get pods
+
+# comprobamos cómo kubernetes escala el número de pods para poder dar servicio mientras
+# actualiza la aplicación. Vemos pods con estado Terminating y Running
+# Para comprobar que la aplicación está ejecutando ahora la versión nueva, 
+# buscamos el puerto, lo cogemos en una variable de entorno y hacemos un curl:
+
+export NODE_PORT=$(kubectl get services/kubernetes-bootcamp -o go-template='{{(index .spec.ports 0).nodePort}}')
+
+echo NODE_PORT=$NODE_PORT
+
+# Comprobando : 
+
+curl $(minikube ip):$NODE_PORT
+
+# También existe un comando específico para comprobar cómo ha ido un rollout de una app:
+kubectl rollout status deployments/kubernetes-bootcamp
+
+# Y al igual que antes podemos entrar al detalle del pod para comprobar la imagen:
+kubectl describe pods | grep Image:
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        R O L L B A C K   D E   U N       U P D A T E      
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Actualizaos a una nueva imagen : 
+kubectl set image deployments/kubernetes-bootcamp kubernetes-bootcamp=gcr.io/google-samples/kubernetes-bootcamp:v10
+
+# Observamos la actualización pero vemos que no están todos UP-TO-DATE :
+kubectl get deployments
+
+# Al mirar los pods vemos que uno da error: 
+kubectl get pods
+
+# Pedimos info de ese pod: 
+kubectl describe pods
+
+# Y comprobamos que la imagen no existe, debemos hacer un rollback : 
+kubectl rollout undo deployments/kubernetes-bootcamp 
+
+# Y validar que todo ha quedado bien.
+kubectl get pods
+
+# Para acabar podemos borrar el servicio y dejar de exponer la aplicación ....
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+         Borrando el servicio ....
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Por último vamos a borrar el servico y dejar de exponer nuestra aplicación : 
+# Ahora está expuesto ....
+curl $(minikube ip):$NODE_PORT
+
+kubectl delete service -l run=kubernetes-bootcamp
+# Ahora no... 
+# Y comprobamos que ya no aparece : 
+kubectl get services
+
+# Podemos comprobar que la aplicación sigue activa en el cluster... pero no está
+# ya expuesta por el servicio : 
+
+kubectl exec -ti $POD_NAME curl localhost:8080
+
+
